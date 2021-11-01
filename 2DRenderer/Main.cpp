@@ -33,10 +33,10 @@ int main(int, char**)
     //    {
     //        framebuffer->DrawPoint(rand() % renderer->width, rand() % renderer->height, { 0, 255, 0, 0 });
     //    }
-        //for (int i = 0; i < 200; i++)
-        //{
-        //    framebuffer->DrawRect(rand() % renderer->width, rand() % renderer->height, 70, 70, { (uint8_t)((rand() % 2) * 255), (uint8_t)((rand() % 2) * 255), (uint8_t)((rand() % 2) * 255), (uint8_t)(rand() % 256)});
-        //}
+        for (int i = 0; i < 200; i++)
+        {
+            framebuffer->DrawRect(rand() % renderer->width, rand() % renderer->height, 70, 70, { (uint8_t)((rand() % 2) * 255), (uint8_t)((rand() % 2) * 255), (uint8_t)((rand() % 2) * 255), (uint8_t)(rand() % 256)});
+        }
     //    for (int i = 0; i < 20; i++)
     //    {
     //        framebuffer->DrawLine(renderer->width >> 1, renderer->height >> 1, rand() % renderer->width, rand() % renderer->height, { 255, 255, 255, 0 });
