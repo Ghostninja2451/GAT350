@@ -1,72 +1,108 @@
-#include "Renderer.h"
-#include "Framebuffer.h"
-#include "Image.h"
-#include "PostProcess.h"
-#include "Tracer.h"
+#include"Renderer.h"
+#include"Framebuffer.h"
+#include"Image.h"
+#include"PostProcess.h"
+#include"Tracer.h"
 #include"Scene.h"
 #include"Material.h"
 #include"Geometry.h"
+#include"Buffer.h"
 
 #include <iostream>
 #include <SDL.h>
 
 int main(int, char**)
 {
-	const int WIDTH = 800;
-	const int HEIGHT = 600;
+	srand((unsigned int)time(nullptr));
+	const int WIDTH = 400;
+	const int HEIGHT = 300;
+	int samples = 0;
 
 	std::unique_ptr<Renderer> renderer = std::make_unique<Renderer>();
 	renderer->Initialize(WIDTH, HEIGHT);
 
 	std::unique_ptr<Framebuffer> framebuffer = std::make_unique<Framebuffer>(renderer.get(),renderer->width, renderer->height);
+	std::unique_ptr<Buffer> accumBuffer = std::make_unique<Buffer>(renderer->width, renderer->height);
+	std::unique_ptr<Buffer> buffer = std::make_unique<Buffer>(renderer->width, renderer->height);
 
 	// ray tracer
 	std::unique_ptr<Tracer> tracer = std::make_unique<Tracer>();
 
-	//Samplers
+	// scene
+	std::vector<std::shared_ptr<Sampler>> samplers;
+	samplers.push_back(std::make_unique<TextureSampler>(std::make_unique<Image>("../Resources/rust.bmp")));
+	samplers.push_back(std::make_unique<TextureSampler>(std::make_unique<Image>("../Resources/poolball.bmp")));
+	samplers.push_back(std::make_unique<TextureSampler>(std::make_unique<Image>("../Resources/planet.bmp")));
+	samplers.push_back(std::make_unique<TextureSampler>(std::make_unique<Image>("../Resources/wood.bmp")));
+	samplers.push_back(std::make_unique<TextureSampler>(std::make_unique<Image>("../Resources/lava.bmp")));
+	samplers.push_back(std::make_unique<ColorSampler>(glm::vec3{ 1.0f, 0.2f, 0.2f }));
+	samplers.push_back(std::make_unique<ColorSampler>(glm::vec3{ 0.2f, 1.0f, 0.2f }));
+	samplers.push_back(std::make_unique<ColorSampler>(glm::vec3{ 0.2f, 0.2f, 1.0f }));
+	samplers.push_back(std::make_unique<ColorSampler>(glm::vec3{ 0.2f, 1.0f, 1.0f }));
+	samplers.push_back(std::make_unique<ColorSampler>(glm::vec3{ 1.0f, 1.0f, 0.2f }));
+	samplers.push_back(std::make_unique<ColorSampler>(glm::vec3{ 1.0f, 0.2f, 1.0f }));
+	samplers.push_back(std::make_unique<ColorSampler>(glm::vec3{ 0.8f, 0.8f, 0.8f }));
 
-	std::shared_ptr<TextureSampler> texture1 = std::make_unique<TextureSampler>(std::make_unique<Image>("../Resources/planet.bmp"));
-	std::shared_ptr<TextureSampler> texture2 = std::make_unique<TextureSampler>(std::make_unique<Image>("../Resources/rust.bmp"));
-	std::shared_ptr<TextureSampler> texture3 = std::make_unique<TextureSampler>(std::make_unique<Image>("../Resources/poolball.bmp"));
-	std::shared_ptr<TextureSampler> texture4 = std::make_unique<TextureSampler>(std::make_unique<Image>("../Resources/lava.bmp"));
-
-	std::shared_ptr<CheckerSampler> checker = std::make_unique<CheckerSampler>(glm::vec3{ 0, 1, 0 }, glm::vec3{ 0, 1, 1 });
-
-	
-
-	//std::unique_ptr<Sphere> sphere = std::make_unique<Sphere>(glm::vec3{ 0, 0, -10 }, 3.0f);
-	//scene->Add(std::move(sphere));
-
-	//scene->Add(std::move(std::make_unique<Plane>(glm::vec3{ 0, -5, 0 }, glm::vec3{ 0, 1, 0 })));
+	std::shared_ptr<CheckerSampler> black_checker = std::make_unique<CheckerSampler>(glm::vec3{ 0, 0, 0 }, glm::vec3{ 1, 1, 1 }, 5.0f);
+	std::shared_ptr<CheckerSampler> red_checker = std::make_unique<CheckerSampler>(glm::vec3{ 0, 0, 0 }, glm::vec3{ 1, 0, 0 }, 3.0f);
 
 	// scene
 	std::unique_ptr<Scene> scene = std::make_unique<Scene>();
-	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ 0, 4, -10 }, 3.0f, std::make_shared<Lambertian>(texture1))));
-	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ 2, 7, -15 }, 3.0f, std::make_shared<Lambertian>(texture2))));
-	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ 5, 0, -8 }, 2.0f, std::make_shared<Lambertian>(glm::vec3{ 0.2f, 0.2f, 0.8f }))));
-	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ -3, 4, -6 }, 1.5f, std::make_shared<Metal>(texture3, 0.05f))));
-	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ 0, 1, -4 }, 1.5f, std::make_shared<Dielectric>(glm::vec3{ 0.5f, 1, 0.5f }, 1.333f))));
-	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ 1, 6, -1 }, 1.5f, std::make_shared<Dielectric>(glm::vec3{ 0.4f, 0.1f, 0.9f }, 2.42f))));
-	scene->Add(std::move(std::make_unique<Plane>(glm::vec3{ 0, -2, 0 }, glm::vec3{ 0, 1, 0 }, std::make_shared<Lambertian>(checker))));
 
 
 
+	for (int x = -10; x < 10; x++)
+	{
+		for (int z = -10; z < 10; z++)
+		{
+			glm::vec3 position{ x + random(0.1f, 0.9f), 0.2f, z + random(0.1f, 0.9f) };
+			float radius = 0.2f; //random(0.2f, 0.5f);
 
-	// camera
-	glm::vec3 eye = glm::vec3{ 9, 1, 2 };
-	glm::vec3 lookAt = glm::vec3{ 0, 2, -10 };
+
+
+			std::shared_ptr<Material> material;
+			std::shared_ptr<Sampler> sampler = samplers[rand() % samplers.size()];
+
+
+
+			float r = random01();
+			if (r < 0.8f)
+			{
+				material = std::make_shared<Lambertian>(sampler);
+			}
+			else if (r < 0.95f)
+			{
+				material = std::make_shared<Metal>(sampler, random(0.0f, 0.5f));
+			}
+			else
+			{
+				material = std::make_shared<Dielectric>(sampler, random(1.0f, 2.5f));
+			}
+
+
+
+			scene->Add(std::move(std::make_unique<Sphere>(position, radius, material)));
+		}
+	}
+
+	scene->Add(std::move(std::make_unique<Plane>(glm::vec3{ 0, -0.01f, 0 }, glm::vec3{ 0, 1, 0 }, std::make_shared<Lambertian>(black_checker))));
+	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ 0, 1, 0 }, 1.0f, std::make_shared<Metal>(glm::vec3{ 0.8f, 0.8f, 0.8f }, 0.0f))));
+	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ -4, 1, 0 }, 1.0f, std::make_shared<Dielectric>(glm::vec3{ 1, 1, 1 }, 1.5f))));
+
+	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ 0, 30, 0 }, 10.0f, std::make_shared<Emissive>(glm::vec3{ 10, 10, 10 }))));
+
+	glm::vec3 eye{ 13, 2, 3 };
+	glm::vec3 lookAt{ 0, 0, 0 };
 	float focalLength = glm::length(eye - lookAt);
-	std::unique_ptr<Camera> camera = std::make_unique<Camera>(eye, lookAt, glm::vec3{ 0, 1, 0 }, 90.0f, glm::ivec2{ framebuffer->colorBuffer.width, framebuffer->colorBuffer.height }, 0.2f, focalLength);
-	
+	std::unique_ptr<Camera> camera = std::make_unique<Camera>(eye, lookAt, glm::vec3{ 0, 1, 0 }, 20.0f, glm::ivec2{ framebuffer->colorBuffer.width, framebuffer->colorBuffer.height }, 0.1f, focalLength);
+
 	//Lighting
 	scene->Add(std::move(std::make_unique<Sphere>(glm::vec3{ 0, 20, 0 }, 10.0f, std::make_shared<Emissive>(glm::vec3{ 10, 10, 10 }))));
 
-	bool quit = false;
 	SDL_Event event;
 	//render scene
-	framebuffer->Clear({ 0, 0, 0, 0 });
-	tracer->Trace(framebuffer->colorBuffer, scene.get(), camera.get());
-	framebuffer->Update();
+
+	bool quit = false;
 
 	while (!quit)
 	{
@@ -78,6 +114,19 @@ int main(int, char**)
 			break;
 		}
 
+		// render to accumulation buffer
+		samples += tracer->samples;
+		std::string message = "Samples: " + std::to_string(samples);
+		tracer->Trace(accumBuffer.get(), scene.get(), camera.get(), message);
+
+		// copy accumulation buffer to buffer
+		*buffer.get() = *accumBuffer.get();
+		// process buffer values (average + sqrt)
+		buffer->Process(samples);
+
+		// copy buffer to frame buffer
+		buffer->Copy(framebuffer->colorBuffer);
+		framebuffer->Update();
 
 		renderer->CopyBuffer(framebuffer.get());
 		renderer->Present();
